@@ -1,7 +1,7 @@
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
-from gi.repository import Gtk, Adw, Pango, GLib
+from gi.repository import Gtk, Adw, Pango, GLib, Gdk
 
 class NoteList(Gtk.Box):
     def __init__(self, db, window):
@@ -100,6 +100,14 @@ class NoteList(Gtk.Box):
             
             row.set_child(vbox)
             row.note_id = note['id']
+            row.note_title = note['title']
+            
+            # Attach right-click gesture for context menu
+            gesture = Gtk.GestureClick()
+            gesture.set_button(Gdk.BUTTON_SECONDARY)  # 3: Right click
+            gesture.connect("pressed", lambda g, n, x, y, r=row: self.show_note_menu(r, r))
+            vbox.add_controller(gesture)
+            
             self.listbox.append(row)
 
         if notes:
@@ -109,6 +117,81 @@ class NoteList(Gtk.Box):
                 self.window.on_note_selected(first_row.note_id)
         else:
             self.window.editor_panel.clear()
+
+    def show_note_menu(self, row, target_widget):
+        popover = Gtk.Popover()
+        row.popover = popover  # Keep Python ref to prevent GC cleanup!
+        popover.set_parent(target_widget)
+
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        vbox.set_margin_start(6)
+        vbox.set_margin_end(6)
+        vbox.set_margin_top(6)
+        vbox.set_margin_bottom(6)
+
+        rename_btn = Gtk.Button(label="Yeniden Adlandır")
+        rename_btn.add_css_class("flat")
+        rename_btn.connect("clicked", lambda b: (popover.popdown(), self.on_rename_note(row)))
+        vbox.append(rename_btn)
+
+        pin_btn = Gtk.Button(label="Sabitle / Sabitlemeyi Kaldır")
+        pin_btn.add_css_class("flat")
+        pin_btn.connect("clicked", lambda b: (popover.popdown(), self.on_toggle_pin(row)))
+        vbox.append(pin_btn)
+
+        delete_btn = Gtk.Button(label="Notu Sil")
+        delete_btn.add_css_class("flat")
+        delete_btn.add_css_class("destructive-action")
+        delete_btn.connect("clicked", lambda b: (popover.popdown(), self.on_delete_note(row)))
+        vbox.append(delete_btn)
+
+        popover.set_child(vbox)
+        popover.popup()
+
+    def on_rename_note(self, row):
+        note = self.db.get_note(row.note_id)
+        if not note:
+            return
+        dialog = Adw.MessageDialog(heading="Not Başlığını Değiştir", body="Yeni not başlığını girin:")
+        entry = Gtk.Entry()
+        entry.set_text(note['title'] or "")
+        dialog.set_extra_child(entry)
+        dialog.add_response("cancel", "İptal")
+        dialog.add_response("save", "Kaydet")
+        dialog.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED)
+
+        def on_response(dialog, response):
+            if response == "save":
+                new_title = entry.get_text().strip()
+                if new_title:
+                    self.db.update_note(row.note_id, new_title, note['content'], note['folder_id'])
+                    self.refresh_current_list()
+                    if self.window.editor_panel.current_note_id == row.note_id:
+                        self.window.editor_panel.load_note(row.note_id)
+                    self.window.show_toast("Not başlığı güncellendi.")
+
+        dialog.connect("response", on_response)
+        dialog.set_transient_for(self.window)
+        dialog.present()
+
+    def on_toggle_pin(self, row):
+        self.db.toggle_pin(row.note_id)
+        self.refresh_current_list()
+
+    def on_delete_note(self, row):
+        dialog = Adw.MessageDialog(heading="Notu Sil", body="Bu notu silmek istediğinize emin misiniz?")
+        dialog.add_response("cancel", "İptal")
+        dialog.add_response("delete", "Sil")
+        dialog.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE)
+
+        def on_response(dialog, response):
+            if response == "delete":
+                self.db.delete_note(row.note_id)
+                self.window.on_note_deleted(row.note_id)
+
+        dialog.connect("response", on_response)
+        dialog.set_transient_for(self.window)
+        dialog.present()
 
     def refresh_current_list(self):
         self.load_notes(folder_id=False, search_query=self.search_entry.get_text())

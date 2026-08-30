@@ -64,32 +64,46 @@ class Sidebar(Gtk.Box):
         folders = self.db.get_folders()
         for f in folders:
             row = Gtk.ListBoxRow()
+            
+            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
             lbl = Gtk.Label(label=f['name'], xalign=0)
+            lbl.set_hexpand(True)
             lbl.set_margin_start(12)
-            lbl.set_margin_end(12)
+            lbl.set_margin_end(6)
             lbl.set_margin_top(8)
             lbl.set_margin_bottom(8)
-            row.set_child(lbl)
+            hbox.append(lbl)
+            
+            # Options button (three dots)
+            opt_btn = Gtk.Button(icon_name="view-more-symbolic")
+            opt_btn.add_css_class("flat")
+            opt_btn.set_valign(Gtk.Align.CENTER)
+            opt_btn.set_tooltip_text("Klasör Seçenekleri")
+            opt_btn.connect("clicked", lambda b, r=row: self.show_folder_menu(r, b))
+            hbox.append(opt_btn)
+            
+            row.set_child(hbox)
             row.folder_id = f['id']
             row.folder_name = f['name']
             
             # Attach right-click gesture for context menu
             gesture = Gtk.GestureClick()
-            gesture.set_button(3)  # Right click
-            gesture.connect("pressed", self.on_row_right_click, row)
-            row.add_controller(gesture)
+            gesture.set_button(Gdk.BUTTON_SECONDARY)  # 3: Right click
+            gesture.connect("pressed", lambda g, n, x, y, r=row: self.show_folder_menu(r, r))
+            hbox.add_controller(gesture)
             
             self.listbox.append(row)
 
     def on_row_activated(self, listbox, row):
         self.window.on_folder_selected(row.folder_id)
 
-    def on_row_right_click(self, gesture, n_press, x, y, row):
+    def show_folder_menu(self, row, target_widget):
         if row.folder_id is None:
             return
 
         popover = Gtk.Popover()
-        popover.set_parent(row)
+        row.popover = popover  # Keep Python ref to prevent GC cleanup!
+        popover.set_parent(target_widget)
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         vbox.set_margin_start(6)
