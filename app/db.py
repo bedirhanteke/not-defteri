@@ -66,6 +66,22 @@ class Database:
             cursor = conn.execute("SELECT * FROM folders ORDER BY name")
             return [dict(row) for row in cursor.fetchall()]
 
+    def rename_folder(self, folder_id, new_name):
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("UPDATE folders SET name = ? WHERE id = ?", (new_name, folder_id))
+                conn.commit()
+                return True
+            except sqlite3.IntegrityError:
+                return False
+
+    def delete_folder(self, folder_id):
+        with self.get_connection() as conn:
+            conn.execute("UPDATE notes SET folder_id = NULL WHERE folder_id = ?", (folder_id,))
+            conn.execute("DELETE FROM folders WHERE id = ?", (folder_id,))
+            conn.commit()
+
     def add_note(self, title, content, folder_id=None):
         now = datetime.datetime.now().isoformat()
         with self.get_connection() as conn:
