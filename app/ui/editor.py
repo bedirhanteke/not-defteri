@@ -39,14 +39,19 @@ class Editor(Gtk.Box):
         self.pin_btn.connect("toggled", self.on_pin_toggled)
         self.header.pack_end(self.pin_btn)
         
-        del_btn = Gtk.Button(icon_name="user-trash-symbolic")
-        del_btn.set_tooltip_text("Sil")
-        del_btn.connect("clicked", self.on_delete_clicked)
-        self.header.pack_end(del_btn)
+        self.del_btn = Gtk.Button(icon_name="user-trash-symbolic")
+        self.del_btn.set_tooltip_text("Sil")
+        self.del_btn.connect("clicked", self.on_delete_clicked)
+        self.header.pack_end(self.del_btn)
         
         self.append(self.header)
 
-        # Single editor text view
+        # Stack for switching between Editor and Empty State
+        self.stack = Gtk.Stack()
+        self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        self.stack.set_vexpand(True)
+
+        # 1. Editor view (TextView inside ScrolledWindow)
         self.text_view = Gtk.TextView()
         self.text_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
         self.text_view.set_margin_start(16)
@@ -61,12 +66,28 @@ class Editor(Gtk.Box):
         src_scrolled = Gtk.ScrolledWindow()
         src_scrolled.set_child(self.text_view)
         src_scrolled.set_vexpand(True)
-        self.append(src_scrolled)
-        
+        self.stack.add_named(src_scrolled, "editor")
+
+        # 2. Empty view (Adw.StatusPage with "Yeni Not Oluştur" button)
+        status_page = Adw.StatusPage()
+        status_page.set_icon_name("document-new-symbolic")
+        status_page.set_title("Henüz Not Yok")
+        status_page.set_description("Bu klasörde henüz bir not bulunmuyor.")
+
+        create_btn = Gtk.Button(label="Yeni Not Oluştur")
+        create_btn.add_css_class("suggested-action")
+        create_btn.add_css_class("pill")
+        create_btn.set_halign(Gtk.Align.CENTER)
+        create_btn.connect("clicked", lambda b: self.window.note_list_panel.create_new_note())
+        status_page.set_child(create_btn)
+
+        self.stack.add_named(status_page, "empty")
+        self.append(self.stack)
+
         self.save_timeout = 0
         self.updating_ui = False
         
-        self.set_sensitive(False)
+        self.clear()
 
     def load_note(self, note_id):
         self.updating_ui = True
@@ -77,7 +98,12 @@ class Editor(Gtk.Box):
             self.title_entry.set_text(note['title'] or "")
             self.text_buffer.set_text(note['content'] or "")
             self.pin_btn.set_active(bool(note['is_pinned']))
-            self.set_sensitive(True)
+            
+            self.title_entry.set_sensitive(True)
+            self.pin_btn.set_sensitive(True)
+            self.del_btn.set_sensitive(True)
+            
+            self.stack.set_visible_child_name("editor")
             self.text_view.grab_focus()
         else:
             self.clear()
@@ -89,7 +115,12 @@ class Editor(Gtk.Box):
         self.title_entry.set_text("")
         self.text_buffer.set_text("")
         self.pin_btn.set_active(False)
-        self.set_sensitive(False)
+        
+        self.title_entry.set_sensitive(False)
+        self.pin_btn.set_sensitive(False)
+        self.del_btn.set_sensitive(False)
+        
+        self.stack.set_visible_child_name("empty")
         self.updating_ui = False
 
     def on_content_changed(self, *args):
