@@ -1,7 +1,7 @@
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
-from gi.repository import Gtk, Adw
+from gi.repository import Gtk, Adw, Gdk
 
 class Sidebar(Gtk.Box):
     def __init__(self, db, window):
@@ -57,6 +57,7 @@ class Sidebar(Gtk.Box):
         all_lbl.set_margin_bottom(8)
         all_row.set_child(all_lbl)
         all_row.folder_id = None
+        all_row.folder_name = "Tüm Notlar"
         self.listbox.append(all_row)
         
         # Load from DB
@@ -70,14 +71,50 @@ class Sidebar(Gtk.Box):
             lbl.set_margin_bottom(8)
             row.set_child(lbl)
             row.folder_id = f['id']
+            row.folder_name = f['name']
+            
+            # Attach right-click gesture for context menu
+            gesture = Gtk.GestureClick()
+            gesture.set_button(3)  # Right click
+            gesture.connect("pressed", self.on_row_right_click, row)
+            row.add_controller(gesture)
+            
             self.listbox.append(row)
 
     def on_row_activated(self, listbox, row):
         self.window.on_folder_selected(row.folder_id)
 
+    def on_row_right_click(self, gesture, n_press, x, y, row):
+        if row.folder_id is None:
+            return
+
+        popover = Gtk.Popover()
+        popover.set_parent(row)
+
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        vbox.set_margin_start(6)
+        vbox.set_margin_end(6)
+        vbox.set_margin_top(6)
+        vbox.set_margin_bottom(6)
+
+        rename_btn = Gtk.Button(label="Yeniden Adlandır")
+        rename_btn.add_css_class("flat")
+        rename_btn.connect("clicked", lambda b: (popover.popdown(), self.on_rename_folder(row)))
+        vbox.append(rename_btn)
+
+        delete_btn = Gtk.Button(label="Klasörü Sil")
+        delete_btn.add_css_class("flat")
+        delete_btn.add_css_class("destructive-action")
+        delete_btn.connect("clicked", lambda b: (popover.popdown(), self.on_delete_folder(row)))
+        vbox.append(delete_btn)
+
+        popover.set_child(vbox)
+        popover.popup()
+
     def on_add_folder(self, btn):
         dialog = Adw.MessageDialog(heading="Yeni Klasör", body="Klasör adını girin:")
         entry = Gtk.Entry()
+        entry.set_placeholder_text("Klasör Adı...")
         dialog.set_extra_child(entry)
         dialog.add_response("cancel", "İptal")
         dialog.add_response("add", "Ekle")
@@ -89,9 +126,52 @@ class Sidebar(Gtk.Box):
                 if name:
                     if self.db.add_folder(name):
                         self.load_folders()
+                        self.window.show_toast(f"'{name}' klasörü oluşturuldu.")
                     else:
-                        self.window.show_toast("Bu klasör zaten var.")
+                        self.window.show_toast("Bu isimde bir klasör zaten var.")
         
+        dialog.connect("response", on_response)
+        dialog.set_transient_for(self.window)
+        dialog.present()
+
+    def on_rename_folder(self, row):
+        dialog = Adw.MessageDialog(heading="Klasörü Yeniden Adlandır", body="Yeni klasör adını girin:")
+        entry = Gtk.Entry()
+        entry.set_text(row.folder_name)
+        dialog.set_extra_child(entry)
+        dialog.add_response("cancel", "İptal")
+        dialog.add_response("save", "Kaydet")
+        dialog.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED)
+        
+        def on_response(dialog, response):
+            if response == "save":
+                new_name = entry.get_text().strip()
+                if new_name and new_name != row.folder_name:
+                    if self.db.rename_folder(row.folder_id, new_name):
+                        self.load_folders()
+                        self.window.show_toast("Klasör adı değiştirildi.")
+                    else:
+                        self.window.show_toast("Bu isimde bir klasör zaten var.")
+        
+        dialog.connect("response", on_response)
+        dialog.set_transient_for(self.window)
+        dialog.present()
+
+    def on_delete_folder(self, row):
+        dialog = Adw.MessageDialog(
+            heading="Klasörü Sil",
+            body=f"'{row.folder_name}' klasörünü silmek istediğinize emin misiniz?\nNotlar silinmez, Tüm Notlar'a taşınır."
+        )
+        dialog.add_response("cancel", "İptal")
+        dialog.add_response("delete", "Sil")
+        dialog.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE)
+        
+        def on_response(dialog, response):
+            if response == "delete":
+                self.db.delete_folder(row.folder_id)
+                self.load_folders()
+                self.window.show_toast("Klasör silindi.")
+                
         dialog.connect("response", on_response)
         dialog.set_transient_for(self.window)
         dialog.present()

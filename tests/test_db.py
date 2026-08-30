@@ -24,6 +24,22 @@ class TestDatabase(unittest.TestCase):
         dup_id = self.db.add_folder("Work")
         self.assertIsNone(dup_id)
 
+    def test_rename_folder(self):
+        folder_id = self.db.add_folder("Personal")
+        res = self.db.rename_folder(folder_id, "Private")
+        self.assertTrue(res)
+        folders = self.db.get_folders()
+        self.assertEqual(folders[0]["name"], "Private")
+
+    def test_delete_folder(self):
+        folder_id = self.db.add_folder("Temp")
+        note_id = self.db.add_note("N", "C", folder_id)
+        self.db.delete_folder(folder_id)
+        folders = self.db.get_folders()
+        self.assertEqual(len(folders), 0)
+        note = self.db.get_note(note_id)
+        self.assertIsNone(note["folder_id"])
+
     def test_add_get_note(self):
         note_id = self.db.add_note("My Note", "Content of note")
         self.assertIsNotNone(note_id)
