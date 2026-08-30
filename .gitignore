@@ -1,0 +1,34 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+env/
+venv/
+ENV/
+
+# Databases (User data must NEVER be committed)
+*.db
+*.sqlite
+*.sqlite3
+
+# Build & packaging directories
+build/
+build-dir/
+dist/
+.flatpak-builder/
+*.egg-info/
+.eggs/
+
+# RPM build artifacts & archives
+notes-*.tar.gz
+*.rpm
+rpmbuild/
+
+# IDE / Editor temporary files
+.vscode/
+.idea/
+*.swp
+*~

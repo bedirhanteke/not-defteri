@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Notes
+Comment=A fast, local Markdown note-taking application
+Exec=run.py
+Icon=com.example.Notes
+Terminal=false
+Type=Application
+Categories=Utility;TextEditor;
+StartupNotify=true

@@ -1,0 +1,5 @@
+# PyGObject & GTK4 are native system packages installed via Fedora dnf:
+#   sudo dnf install python3-gobject gtk4 libadwaita
+#
+# Python GObject introspection bindings (optional via pip if system headers exist):
+PyGObject>=3.42.0
