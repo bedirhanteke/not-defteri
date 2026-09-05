@@ -2,6 +2,8 @@ import sqlite3
 import os
 import datetime
 
+_UNSET = object()
+
 class Database:
     def __init__(self, db_path):
         self.db_path = db_path
@@ -93,13 +95,19 @@ class Database:
             conn.commit()
             return cursor.lastrowid
 
-    def update_note(self, note_id, title, content, folder_id=None):
+    def update_note(self, note_id, title, content, folder_id=_UNSET):
         now = datetime.datetime.now().isoformat()
         with self.get_connection() as conn:
-            conn.execute("""
-                UPDATE notes SET title = ?, content = ?, folder_id = ?, updated_at = ?
-                WHERE id = ?
-            """, (title, content, folder_id, now, note_id))
+            if folder_id is _UNSET:
+                conn.execute("""
+                    UPDATE notes SET title = ?, content = ?, updated_at = ?
+                    WHERE id = ?
+                """, (title, content, now, note_id))
+            else:
+                conn.execute("""
+                    UPDATE notes SET title = ?, content = ?, folder_id = ?, updated_at = ?
+                    WHERE id = ?
+                """, (title, content, folder_id, now, note_id))
             conn.commit()
 
     def get_notes(self, folder_id=None, search_query=None, archived=False):

@@ -50,12 +50,20 @@ class TestDatabase(unittest.TestCase):
         self.assertFalse(note["is_pinned"])
 
     def test_update_note(self):
-        note_id = self.db.add_note("Title 1", "Content 1")
-        self.db.update_note(note_id, "Title 2", "Content 2", folder_id=None)
+        folder_id = self.db.add_folder("Work")
+        note_id = self.db.add_note("Title 1", "Content 1", folder_id=folder_id)
         
+        # Updating note content without specifying folder_id should preserve folder_id
+        self.db.update_note(note_id, "Title 2", "Content 2")
         note = self.db.get_note(note_id)
         self.assertEqual(note["title"], "Title 2")
         self.assertEqual(note["content"], "Content 2")
+        self.assertEqual(note["folder_id"], folder_id)
+
+        # Explicitly updating folder_id
+        self.db.update_note(note_id, "Title 3", "Content 3", folder_id=None)
+        note = self.db.get_note(note_id)
+        self.assertIsNone(note["folder_id"])
 
     def test_delete_note(self):
         note_id = self.db.add_note("T", "C")

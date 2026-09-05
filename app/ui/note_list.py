@@ -60,7 +60,10 @@ class NoteList(Gtk.Box):
         self.search_timeout = 0
 
     def load_notes(self, folder_id=None, search_query=None):
+        folder_changed = False
         if folder_id is not False:
+            if self.current_folder_id != folder_id:
+                folder_changed = True
             self.current_folder_id = folder_id
 
         # Clear list
@@ -69,6 +72,9 @@ class NoteList(Gtk.Box):
             
         notes = self.db.get_notes(self.current_folder_id, search_query)
         
+        current_selected_id = self.window.editor_panel.current_note_id
+        selected_row = None
+
         for note in notes:
             row = Gtk.ListBoxRow()
             
@@ -109,8 +115,12 @@ class NoteList(Gtk.Box):
             vbox.add_controller(gesture)
             
             self.listbox.append(row)
+            if current_selected_id and note['id'] == current_selected_id:
+                selected_row = row
 
-        if notes:
+        if not folder_changed and selected_row:
+            self.listbox.select_row(selected_row)
+        elif notes:
             first_row = self.listbox.get_row_at_index(0)
             if first_row:
                 self.listbox.select_row(first_row)
@@ -164,7 +174,7 @@ class NoteList(Gtk.Box):
             if response == "save":
                 new_title = entry.get_text().strip()
                 if new_title:
-                    self.db.update_note(row.note_id, new_title, note['content'], note['folder_id'])
+                    self.db.update_note(row.note_id, new_title, note['content'])
                     self.refresh_current_list()
                     if self.window.editor_panel.current_note_id == row.note_id:
                         self.window.editor_panel.load_note(row.note_id)
