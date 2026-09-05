@@ -40,5 +40,43 @@ class TestFolderNoteFlow(unittest.TestCase):
         self.assertEqual(notes_in_folder_after_update[0]['id'], note_id)
         self.assertEqual(notes_in_folder_after_update[0]['folder_id'], folder_id)
 
+    def test_change_note_folder_and_type_content(self):
+        # 1. Create Folder A and Folder B
+        folder_a_id = self.db.add_folder("Klasör A")
+        folder_b_id = self.db.add_folder("Klasör B")
+
+        # 2. Create note in Folder A
+        note_id = self.db.add_note("Taşınacak Not", "İçerik A", folder_id=folder_a_id)
+        
+        # Verify it's in Folder A
+        self.assertEqual(len(self.db.get_notes(folder_id=folder_a_id)), 1)
+        self.assertEqual(len(self.db.get_notes(folder_id=folder_b_id)), 0)
+
+        # 3. Change note's folder to Folder B (simulating right-click -> Klasör Değiştir -> Klasör B)
+        note = self.db.get_note(note_id)
+        self.db.update_note(note_id, note['title'], note['content'], folder_id=folder_b_id)
+
+        # Verify note is no longer in Folder A, but in Folder B
+        self.assertEqual(len(self.db.get_notes(folder_id=folder_a_id)), 0)
+        notes_in_b = self.db.get_notes(folder_id=folder_b_id)
+        self.assertEqual(len(notes_in_b), 1)
+        self.assertEqual(notes_in_b[0]['id'], note_id)
+        self.assertEqual(notes_in_b[0]['folder_id'], folder_b_id)
+
+        # 4. Type new content into note (simulating editor auto-save)
+        self.db.update_note(note_id, "Taşınacak Not", "Güncellenmiş İçerik B")
+
+        # 5. Verify note is STILL in Folder B and not reset to NULL / Tüm Notlar
+        note_after_edit = self.db.get_note(note_id)
+        self.assertEqual(note_after_edit['folder_id'], folder_b_id)
+        self.assertEqual(note_after_edit['content'], "Güncellenmiş İçerik B")
+        self.assertEqual(len(self.db.get_notes(folder_id=folder_b_id)), 1)
+
+        # 6. Change note's folder to "Klasörsüz (Tüm Notlar)" (folder_id=None)
+        self.db.update_note(note_id, note_after_edit['title'], note_after_edit['content'], folder_id=None)
+        note_unfoldered = self.db.get_note(note_id)
+        self.assertIsNone(note_unfoldered['folder_id'])
+        self.assertEqual(len(self.db.get_notes(folder_id=folder_b_id)), 0)
+
 if __name__ == '__main__':
     unittest.main()

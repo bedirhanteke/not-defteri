@@ -144,6 +144,47 @@ class NoteList(Gtk.Box):
         rename_btn.connect("clicked", lambda b: (popover.popdown(), self.on_rename_note(row)))
         vbox.append(rename_btn)
 
+        # Klasör Değiştir submenu
+        move_btn = Gtk.Button(label="Klasör Değiştir ›")
+        move_btn.add_css_class("flat")
+        
+        sub_popover = Gtk.Popover()
+        row.sub_popover = sub_popover  # Keep Python ref
+        sub_popover.set_parent(move_btn)
+        sub_popover.set_position(Gtk.PositionType.RIGHT)
+
+        sub_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        sub_vbox.set_margin_start(6)
+        sub_vbox.set_margin_end(6)
+        sub_vbox.set_margin_top(6)
+        sub_vbox.set_margin_bottom(6)
+
+        note = self.db.get_note(row.note_id)
+
+        # "Klasörsüz (Tüm Notlar)" option
+        no_folder_label = "Klasörsüz (Tüm Notlar)"
+        if note and note['folder_id'] is None:
+            no_folder_label = "✓ " + no_folder_label
+
+        no_folder_btn = Gtk.Button(label=no_folder_label)
+        no_folder_btn.add_css_class("flat")
+        no_folder_btn.connect("clicked", lambda b: self.on_change_folder(row.note_id, None, popover, sub_popover))
+        sub_vbox.append(no_folder_btn)
+
+        folders = self.db.get_folders()
+        for f in folders:
+            lbl = f['name']
+            if note and note['folder_id'] == f['id']:
+                lbl = f"✓ {lbl}"
+            f_btn = Gtk.Button(label=lbl)
+            f_btn.add_css_class("flat")
+            f_btn.connect("clicked", lambda b, fid=f['id']: self.on_change_folder(row.note_id, fid, popover, sub_popover))
+            sub_vbox.append(f_btn)
+
+        sub_popover.set_child(sub_vbox)
+        move_btn.connect("clicked", lambda b: sub_popover.popup())
+        vbox.append(move_btn)
+
         pin_btn = Gtk.Button(label="Sabitle / Sabitlemeyi Kaldır")
         pin_btn.add_css_class("flat")
         pin_btn.connect("clicked", lambda b: (popover.popdown(), self.on_toggle_pin(row)))
@@ -157,6 +198,24 @@ class NoteList(Gtk.Box):
 
         popover.set_child(vbox)
         popover.popup()
+
+    def on_change_folder(self, note_id, target_folder_id, main_popover, sub_popover):
+        sub_popover.popdown()
+        main_popover.popdown()
+
+        note = self.db.get_note(note_id)
+        if not note:
+            return
+
+        self.db.update_note(note_id, note['title'], note['content'], folder_id=target_folder_id)
+        self.refresh_current_list()
+
+        if target_folder_id is None:
+            self.window.show_toast("Not klasörden çıkarıldı.")
+        else:
+            folder = next((f for f in self.db.get_folders() if f['id'] == target_folder_id), None)
+            folder_name = folder['name'] if folder else "Klasör"
+            self.window.show_toast(f"Not '{folder_name}' klasörüne taşındı.")
 
     def on_rename_note(self, row):
         note = self.db.get_note(row.note_id)
