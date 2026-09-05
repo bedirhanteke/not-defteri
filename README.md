@@ -4,9 +4,8 @@ Fedora ve GNOME masaüstü ortamı için Python, GTK 4 ve libadwaita ile gelişt
 
 ---
 
-## Ekran Görüntüsü
+<img width="1192" height="788" alt="image" src="https://github.com/user-attachments/assets/f548d689-bc78-4296-ad80-63229cb36cbe" />
 
-![Not Defteri Ekran Görüntüsü](data/screenshot.png)
 
 ---
 
